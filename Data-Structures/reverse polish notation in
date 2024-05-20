@@ -1,0 +1,142 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAXPILE 100  // Taille maximale de la pile
+
+typedef struct {
+    char operateurs[MAXPILE];
+    int sommetOp;
+} PileOp;
+
+void empilerOp(PileOp *p, char op) {
+    if (p->sommetOp == MAXPILE - 1) {
+        printf("Dépassement de pile d'opérateurs\n");
+        return;
+    }
+    p->operateurs[++(p->sommetOp)] = op;
+}
+
+char depilerOp(PileOp *p) {
+    if (p->sommetOp == -1) {
+        printf("Sous-dépassement de pile d'opérateurs\n");
+        return '\0';
+    }
+    return p->operateurs[(p->sommetOp)--];
+}
+
+int precedence(char op) {
+    switch (op) {
+        case '+':
+        case '-':
+            return 1;
+        case '*':
+        case '/':
+            return 2;
+        case '^':
+            return 3;
+    }
+    return 0;
+}
+
+int estChiffre(char c) {
+    return c >= '0' && c <= '9';
+}
+
+int estEspace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+char* conversion(char *expInfixe) {
+    PileOp pileOp;
+    pileOp.sommetOp = -1;  // Initialiser la pile
+    
+    int length = strlen(expInfixe);
+    char *expPostfixe = (char *)malloc((length + 1) * sizeof(char));
+    int j = 0;
+
+    for (int i = 0; i < length; i++) {
+        if (estEspace(expInfixe[i])) continue;
+
+        if (estChiffre(expInfixe[i])) {
+            while (estChiffre(expInfixe[i])) {
+                expPostfixe[j++] = expInfixe[i++];
+            }
+            expPostfixe[j++] = ' ';
+            i--;
+        } else if (expInfixe[i] == '(') {
+            empilerOp(&pileOp, expInfixe[i]);
+        } else if (expInfixe[i] == ')') {
+            while (pileOp.sommetOp != -1 && pileOp.operateurs[pileOp.sommetOp] != '(') {
+                expPostfixe[j++] = depilerOp(&pileOp);
+                expPostfixe[j++] = ' ';
+            }
+            depilerOp(&pileOp);
+        } else {
+            while (pileOp.sommetOp != -1 && precedence(pileOp.operateurs[pileOp.sommetOp]) >= precedence(expInfixe[i])) {
+                expPostfixe[j++] = depilerOp(&pileOp);
+                expPostfixe[j++] = ' ';
+            }
+            empilerOp(&pileOp, expInfixe[i]);
+        }
+    }
+
+    while (pileOp.sommetOp != -1) {
+        expPostfixe[j++] = depilerOp(&pileOp);
+        expPostfixe[j++] = ' ';
+    }
+    expPostfixe[j - 1] = '\0';  // Remplacer le dernier espace par un caractère nul
+
+    return expPostfixe;
+}
+
+int evaluer(char *expPostfixe) {
+    PileOp pile;
+    pile.sommetOp = -1;  // Initialiser la pile pour l'évaluation
+    
+    int i = 0;
+    while (expPostfixe[i] != '\0') {
+        if (estEspace(expPostfixe[i])) {
+            i++;
+            continue;
+        }
+
+        if (estChiffre(expPostfixe[i])) {
+            int num = 0;
+            while (estChiffre(expPostfixe[i])) {
+                num = num * 10 + (expPostfixe[i++] - '0');
+            }
+            empilerOp((PileOp*)&pile, num);
+        } else {
+            int val2 = depilerOp((PileOp*)&pile);
+            int val1 = depilerOp((PileOp*)&pile);
+            switch (expPostfixe[i]) {
+                case '+': empilerOp((PileOp*)&pile, val1 + val2); break;
+                case '-': empilerOp((PileOp*)&pile, val1 - val2); break;
+                case '*': empilerOp((PileOp*)&pile, val1 * val2); break;
+                case '/': empilerOp((PileOp*)&pile, val1 / val2); break;
+            }
+            i++;
+        }
+    }
+    return depilerOp((PileOp*)&pile);
+}
+
+int main() {
+    char expInfixe[100];
+    printf("Entrez l'expression infixée: ");
+    fgets(expInfixe, 100, stdin);
+
+    // Supprimer le caractère de nouvelle ligne de l'entrée
+    expInfixe[strcspn(expInfixe, "\n")] = '\0';
+
+    char *expPostfixe = conversion(expInfixe);
+    printf("Expression postfixée: %s\n", expPostfixe);
+
+    int resultat = evaluer(expPostfixe);
+    printf("Résultat de l'expression: %d\n", resultat);
+
+    free(expPostfixe);  // Libérer la mémoire allouée dynamiquement
+
+    return 0;
+}
